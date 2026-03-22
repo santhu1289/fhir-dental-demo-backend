@@ -11,7 +11,8 @@ const app = express();
 
 // 🌐 CORS (allow local + deployed frontend)
 const allowedOrigins = [
-  "https://fhir-dental-demo-front-end.vercel.app"
+  "http://localhost:3000",
+  "process.env.FRONTEND_URL"
 ].filter(Boolean);
 
 app.use(cors({ origin: allowedOrigins }));
