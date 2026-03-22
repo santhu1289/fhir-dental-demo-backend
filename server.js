@@ -4,20 +4,19 @@ const express = require("express");
 const cors = require("cors");
 
 // For Node < 18 (safe fallback)
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+// const fetch = (...args) =>
+//   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
 // 🌐 CORS (allow local + deployed frontend)
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      process.env.FRONTEND_URL, // 🔁 replace with your actual frontend URL
-    ],
-  })
-);
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins }));
+
 
 app.use(express.json());
 
