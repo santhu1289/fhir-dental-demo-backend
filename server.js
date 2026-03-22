@@ -1,15 +1,34 @@
 const express = require("express");
 const cors = require("cors");
 
+// For Node < 18 (safe fallback)
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
 const app = express();
 
-app.use(cors());
+// 🌐 CORS (allow local + deployed frontend)
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://your-frontend.vercel.app", // 🔁 replace with your actual frontend URL
+    ],
+  })
+);
+
 app.use(express.json());
 
+// ✅ Root route (fixes "Cannot GET /")
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
+// 🔗 FHIR server
 const FHIR_SERVER = "https://hapi.fhir.org/baseR4/Condition";
 
+// 🦷 Save condition API
 app.post("/save-condition", async (req, res) => {
-
   console.log("Request received from frontend:");
   console.log(req.body);
 
@@ -18,55 +37,58 @@ app.post("/save-condition", async (req, res) => {
   const condition = {
     resourceType: "Condition",
     subject: {
-      reference: "Patient/" + patientId
+      reference: "Patient/" + patientId,
     },
     code: {
-      coding: [{
-        system: "http://snomed.info/sct",
-        code: code,
-        display: display
-      }]
+      coding: [
+        {
+          system: "http://snomed.info/sct",
+          code: code,
+          display: display,
+        },
+      ],
     },
-    bodySite: [{
-      text: `Tooth ${tooth}`
-    }]
+    bodySite: [
+      {
+        text: `Tooth ${tooth}`,
+      },
+    ],
   };
 
-  console.log("FHIR Condition Resource Created:");
+  console.log("FHIR Condition Created:");
   console.log(JSON.stringify(condition, null, 2));
 
   try {
-
     const response = await fetch(FHIR_SERVER, {
       method: "POST",
       headers: {
-        "Content-Type": "application/fhir+json"
+        "Content-Type": "application/fhir+json",
       },
-      body: JSON.stringify(condition)
+      body: JSON.stringify(condition),
     });
 
     const data = await response.json();
 
-    // 🔴 THIS IS WHAT YOU WANT
-    console.log("Response received from FHIR server:");
+    console.log("FHIR Response:");
     console.log(JSON.stringify(data, null, 2));
 
-    console.log("FHIR Resource ID:", data.id);
-
     res.json(data);
-
   } catch (error) {
-
-    console.error("Error sending to FHIR server:", error);
+    console.error("Error sending to FHIR:", error);
 
     res.status(500).json({
-      error: error.message
+      error: error.message,
     });
-
   }
-
 });
 
-app.listen(4000, () => {
-  console.log("Backend running on http://localhost:4000");
-});
+// 🧠 Dual mode: Local vs Vercel
+if (process.env.NODE_ENV !== "production") {
+  const PORT = 4000;
+  app.listen(PORT, () => {
+    console.log(`Backend running on http://localhost:${PORT}`);
+  });
+}
+
+// ✅ Required for Vercel
+module.exports = app;
