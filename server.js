@@ -12,7 +12,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      FRONTEND_URL, // 🔁 replace with your actual frontend URL
+      process.env.FRONTEND_URL, // 🔁 replace with your actual frontend URL
     ],
   })
 );
