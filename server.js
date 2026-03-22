@@ -9,7 +9,7 @@ const app = express();
 // 🌐 Allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL
+  "https://fhir-dental-demo-front-end.vercel.app"
 ].filter(Boolean);
 
 // ✅ Simple + safe CORS (no crash)
