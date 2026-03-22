@@ -1,26 +1,40 @@
-//server.js
+// server.js
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 
-// For Node < 18 (safe fallback)
-// const fetch = (...args) =>
-//   import("node-fetch").then(({ default: fetch }) => fetch(...args));
-
 const app = express();
 
-// 🌐 CORS (allow local + deployed frontend)
+// 🌐 Allowed origins (FIXED)
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL // ✅ correct usage
 ].filter(Boolean);
 
-app.use(cors({ origin: allowedOrigins }));
+// ✅ Proper CORS setup (handles Vercel + browser preflight)
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow Postman / curl
 
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"]
+  })
+);
+
+// ✅ Handle preflight requests (VERY IMPORTANT for Vercel)
+app.options("*", cors());
 
 app.use(express.json());
 
-// ✅ Root route (fixes "Cannot GET /")
+// ✅ Root route
 app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
@@ -30,62 +44,57 @@ const FHIR_SERVER = "https://hapi.fhir.org/baseR4/Condition";
 
 // 🦷 Save condition API
 app.post("/save-condition", async (req, res) => {
-  console.log("Request received from frontend:");
-  console.log(req.body);
-
-  const { patientId, tooth, code, display } = req.body;
-
-  const condition = {
-    resourceType: "Condition",
-    subject: {
-      reference: "Patient/" + patientId,
-    },
-    code: {
-      coding: [
-        {
-          system: "http://snomed.info/sct",
-          code: code,
-          display: display,
-        },
-      ],
-    },
-    bodySite: [
-      {
-        text: `Tooth ${tooth}`,
-      },
-    ],
-  };
-
-  console.log("FHIR Condition Created:");
-  console.log(JSON.stringify(condition, null, 2));
-
   try {
+    console.log("Request received:", req.body);
+
+    const { patientId, tooth, code, display } = req.body;
+
+    const condition = {
+      resourceType: "Condition",
+      subject: {
+        reference: "Patient/" + patientId
+      },
+      code: {
+        coding: [
+          {
+            system: "http://snomed.info/sct",
+            code,
+            display
+          }
+        ]
+      },
+      bodySite: [
+        {
+          text: `Tooth ${tooth}`
+        }
+      ]
+    };
+
     const response = await fetch(FHIR_SERVER, {
       method: "POST",
       headers: {
-        "Content-Type": "application/fhir+json",
+        "Content-Type": "application/fhir+json"
       },
-      body: JSON.stringify(condition),
+      body: JSON.stringify(condition)
     });
 
     const data = await response.json();
 
-    console.log("FHIR Response:");
-    console.log(JSON.stringify(data, null, 2));
+    console.log("FHIR Response:", data);
 
     res.json(data);
   } catch (error) {
-    console.error("Error sending to FHIR:", error);
+    console.error("FHIR Error:", error);
 
     res.status(500).json({
-      error: error.message,
+      error: error.message
     });
   }
 });
 
-// 🧠 Dual mode: Local vs Vercel
+// 🧠 Local vs Vercel
 if (process.env.NODE_ENV !== "production") {
-  const PORT = 4000;
+  const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`Backend running on http://localhost:${PORT}`);
   });
