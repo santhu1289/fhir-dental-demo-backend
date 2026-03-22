@@ -6,31 +6,21 @@ const cors = require("cors");
 
 const app = express();
 
-// 🌐 Allowed origins (FIXED)
+// 🌐 Allowed origins
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL // ✅ correct usage
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
-// ✅ Proper CORS setup (handles Vercel + browser preflight)
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow Postman / curl
+// ✅ Simple + safe CORS (no crash)
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"]
-  })
-);
-
-// ✅ Handle preflight requests (VERY IMPORTANT for Vercel)
-app.options("*", cors());
+// ❌ REMOVE THIS LINE (causes crash)
+// app.options("*", cors());
 
 app.use(express.json());
 
@@ -49,25 +39,21 @@ app.post("/save-condition", async (req, res) => {
 
     const { patientId, tooth, code, display } = req.body;
 
+    if (!patientId || !tooth || !code) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const condition = {
       resourceType: "Condition",
-      subject: {
-        reference: "Patient/" + patientId
-      },
+      subject: { reference: "Patient/" + patientId },
       code: {
-        coding: [
-          {
-            system: "http://snomed.info/sct",
-            code,
-            display
-          }
-        ]
+        coding: [{
+          system: "http://snomed.info/sct",
+          code,
+          display
+        }]
       },
-      bodySite: [
-        {
-          text: `Tooth ${tooth}`
-        }
-      ]
+      bodySite: [{ text: `Tooth ${tooth}` }]
     };
 
     const response = await fetch(FHIR_SERVER, {
@@ -80,11 +66,10 @@ app.post("/save-condition", async (req, res) => {
 
     const data = await response.json();
 
-    console.log("FHIR Response:", data);
-
     res.json(data);
+
   } catch (error) {
-    console.error("FHIR Error:", error);
+    console.error("🔥 Backend crash:", error);
 
     res.status(500).json({
       error: error.message
